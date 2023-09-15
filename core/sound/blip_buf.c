@@ -35,20 +35,20 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA */
 /* Equivalent to ULONG_MAX >= 0xFFFFFFFF00000000.
 Avoids constants that don't fit in 32 bits. */
 #if ULONG_MAX/0xFFFFFFFF > 0xFFFFFFFF
-	typedef unsigned long fixed_t;
-	enum { pre_shift = 32 };
+	typedef unsigned long long fixed_t;
+	enum { pre_shift = 0 };
 
 #elif defined(ULLONG_MAX)
 	typedef unsigned long long fixed_t;
-	enum { pre_shift = 32 };
+	enum { pre_shift = 0 };
 
 #else
-	typedef unsigned fixed_t;
+	typedef unsigned long long fixed_t;
 	enum { pre_shift = 0 };
 
 #endif
 
-enum { time_bits = pre_shift + 20 };
+enum { time_bits = pre_shift + 48 };
 
 static fixed_t const time_unit = (fixed_t) 1 << time_bits;
 
@@ -59,7 +59,7 @@ enum { half_width  = 8 };
 enum { buf_extra   = half_width*2 + end_frame_extra };
 enum { phase_bits  = 5 };
 enum { phase_count = 1 << phase_bits };
-enum { delta_bits  = 15 };
+enum { delta_bits  = 16 };
 enum { delta_unit  = 1 << delta_bits };
 enum { frac_bits = time_bits - pre_shift };
 enum { phase_shift = frac_bits - phase_bits };
@@ -291,12 +291,12 @@ int blip_read_samples( blip_t* m, short out [], int count)
 {
 #ifdef BLIP_ASSERT
 	assert( count >= 0 );
+#endif
 
 	if ( count > (m->offset >> time_bits) )
 		count = m->offset >> time_bits;
 
 	if ( count )
-#endif
   {
 #ifdef BLIP_MONO
 		buf_t const* in = SAMPLES( m );
@@ -320,7 +320,7 @@ int blip_read_samples( blip_t* m, short out [], int count)
 			*out++ = s;
 
 			/* High-pass filter */
-			sum -= s << (delta_bits - bass_shift);
+			/* sum -= s << (delta_bits - bass_shift); */
 
 #ifndef BLIP_MONO
 			/* Eliminate fraction */
@@ -333,7 +333,7 @@ int blip_read_samples( blip_t* m, short out [], int count)
 			*out++ = s;
 
 			/* High-pass filter */
-			sum2 -= s << (delta_bits - bass_shift);
+			/* sum2 -= s << (delta_bits - bass_shift); */
 #endif
 		}
 		while ( in != end );
@@ -354,6 +354,7 @@ int blip_mix_samples( blip_t* m1, blip_t* m2, blip_t* m3, short out [], int coun
 {
 #ifdef BLIP_ASSERT
   assert( count >= 0 );
+#endif
 
   if ( count > (m1->offset >> time_bits) )
     count = m1->offset >> time_bits;
@@ -363,7 +364,6 @@ int blip_mix_samples( blip_t* m1, blip_t* m2, blip_t* m3, short out [], int coun
     count = m3->offset >> time_bits;
 
   if ( count )
-#endif
   {
     buf_t const* end;
     buf_t const* in[3];
@@ -399,7 +399,7 @@ int blip_mix_samples( blip_t* m1, blip_t* m2, blip_t* m3, short out [], int coun
       *out++ = s;
 
       /* High-pass filter */
-      sum -= s << (delta_bits - bass_shift);
+      /* sum -= s << (delta_bits - bass_shift); */
 
 #ifndef BLIP_MONO
       /* Eliminate fraction */
@@ -414,7 +414,7 @@ int blip_mix_samples( blip_t* m1, blip_t* m2, blip_t* m3, short out [], int coun
       *out++ = s;
 
       /* High-pass filter */
-      sum2 -= s << (delta_bits - bass_shift);
+      /* sum2 -= s << (delta_bits - bass_shift); */
 #endif
     }
     while ( in[0] != end );
@@ -486,6 +486,10 @@ simply ignoring the low half. */
 
 void blip_add_delta( blip_t* m, unsigned time, int delta_l, int delta_r )
 {
+	blip_add_delta_fast(m, time, delta_l, delta_r);
+	return;
+
+
   if (delta_l | delta_r)
   {
     unsigned fixed = (unsigned) ((time * m->factor + m->offset) >> pre_shift);
@@ -611,7 +615,7 @@ void blip_add_delta_fast( blip_t* m, unsigned time, int delta_l, int delta_r )
 {
   if (delta_l | delta_r)
   {
-    unsigned fixed = (unsigned) ((time * m->factor + m->offset) >> pre_shift);
+    fixed_t fixed = (fixed_t) ((time * m->factor + m->offset) >> pre_shift);
     int interp = fixed >> (frac_bits - delta_bits) & (delta_unit - 1);
     int pos = fixed >> frac_bits;
 
@@ -653,6 +657,12 @@ void blip_add_delta_fast( blip_t* m, unsigned time, int delta_l, int delta_r )
 
 void blip_add_delta( blip_t* m, unsigned time, int delta )
 {
+	{
+		blip_add_delta_fast(m, time, delta);
+		return;
+	}
+
+
 	unsigned fixed = (unsigned) ((time * m->factor + m->offset) >> pre_shift);
 	buf_t* out = SAMPLES( m ) + (fixed >> frac_bits);
 	
@@ -691,7 +701,7 @@ void blip_add_delta( blip_t* m, unsigned time, int delta )
 
 void blip_add_delta_fast( blip_t* m, unsigned time, int delta )
 {
-	unsigned fixed = (unsigned) ((time * m->factor + m->offset) >> pre_shift);
+	fixed_t fixed = (fixed_t) ((time * m->factor + m->offset) >> pre_shift);
 	buf_t* out = SAMPLES( m ) + (fixed >> frac_bits);
 	
 	int interp = fixed >> (frac_bits - delta_bits) & (delta_unit - 1);
