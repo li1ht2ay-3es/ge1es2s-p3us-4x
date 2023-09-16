@@ -142,7 +142,14 @@ uint8_t cart_size;
 static bool is_running = 0;
 static uint8_t temp[0x10000];
 static int16 soundbuffer[3068];
-static uint16_t bitmap_data_[720 * 576];
+
+#ifdef FRONTEND_SUPPORTS_RGB888
+	#define RETRO_PITCH uint32_t
+#else
+	#define RETRO_PITCH uint16_t
+#endif
+
+static RETRO_PITCH bitmap_data_[720 * 576];
 
 static bool restart_eq = false;
 
@@ -932,7 +939,8 @@ static void draw_cursor(int16_t x, int16_t y, uint16_t color)
    int i;
 
    /* crosshair center position */   
-   uint16_t *ptr = (uint16_t *)bitmap.data + ((bitmap.viewport.y + y) * bitmap.width) + x + bitmap.viewport.x;
+   RETRO_PITCH *ptr = (uint32_t *)bitmap.data + ((bitmap.viewport.y + y) * bitmap.width) + x + bitmap.viewport.x;
+   RETRO_PITCH white = (RETRO_PITCH) (-1);
 
    /* default crosshair dimension */
    int x_start = x - 3;
@@ -952,9 +960,9 @@ static void draw_cursor(int16_t x, int16_t y, uint16_t color)
 
    /* draw crosshair */
    for (i = (x_start - x); i <= (x_end - x); i++)
-      ptr[i] = (i & 1) ? color : 0xffff;
+      ptr[i] = (i & 1) ? color : white;
    for (i = (y_start - y); i <= (y_end - y); i++)
-      ptr[i * bitmap.width] = (i & 1) ? color : 0xffff;
+      ptr[i * bitmap.width] = (i & 1) ? color : white;
 }
 
 static void init_bitmap(void)
@@ -962,7 +970,7 @@ static void init_bitmap(void)
    memset(&bitmap, 0, sizeof(bitmap));
    bitmap.width      = 720;
    bitmap.height     = 576;
-   bitmap.pitch      = 720 * 2;
+   bitmap.pitch      = 720 * sizeof(RETRO_PITCH);
    bitmap.data       = (uint8_t *)bitmap_data_;
 }
 
@@ -1869,6 +1877,7 @@ static void check_variables(bool first_run)
   {
     orig_value = config.ntsc;
 
+#if 0
     if (!var.value || !strcmp(var.value, "disabled"))
       config.ntsc = 0;
     else if (var.value && !strcmp(var.value, "monochrome"))
@@ -1895,6 +1904,7 @@ static void check_variables(bool first_run)
       sms_ntsc_init(sms_ntsc, &sms_ntsc_rgb);
       md_ntsc_init(md_ntsc,   &md_ntsc_rgb);
     }
+#endif
 
     if (orig_value != config.ntsc)
       update_viewports = true;
@@ -3003,7 +3013,7 @@ void retro_get_system_av_info(struct retro_system_av_info *info)
    {
       /* 16 bit system */
       if (config.ntsc) {
-         info->geometry.max_width = MD_NTSC_OUT_WIDTH(320 + (bitmap.viewport.x * 2));
+         info->geometry.max_width = (320 + (bitmap.viewport.x * 2));
       } else {
          info->geometry.max_width = 320 + (bitmap.viewport.x * 2);
       }
@@ -3017,7 +3027,7 @@ void retro_get_system_av_info(struct retro_system_av_info *info)
    {
       /* 8 bit system */
       if (config.ntsc) {
-         info->geometry.max_width = SMS_NTSC_OUT_WIDTH(256 + (bitmap.viewport.x * 2));
+         info->geometry.max_width = (256 + (bitmap.viewport.x * 2));
       } else {
          info->geometry.max_width = 256 + (bitmap.viewport.x * 2);
       }
@@ -3343,6 +3353,13 @@ bool retro_load_game(const struct retro_game_info *info)
       if(environ_cb(RETRO_ENVIRONMENT_SET_PIXEL_FORMAT, &rgb565))
          if (log_cb)
             log_cb(RETRO_LOG_INFO, "Frontend supports RGB565 - will use that instead of XRGB1555.\n");
+   }
+#elif defined(FRONTEND_SUPPORTS_RGB888)
+   {
+      unsigned rgb888 = RETRO_PIXEL_FORMAT_XRGB8888;
+      if(environ_cb(RETRO_ENVIRONMENT_SET_PIXEL_FORMAT, &rgb888))
+         if (log_cb)
+            log_cb(RETRO_LOG_INFO, "Frontend supports RGB888 - will use that instead of XRGB565.\n");
    }
 #endif
 
@@ -3868,11 +3885,11 @@ void retro_run(void)
 
    if (!do_skip)
    {
-        video_cb(bitmap.data + bmdoffset, vwidth - vwoffset, vheight, 720 * 2);	
+        video_cb(bitmap.data + bmdoffset, vwidth - vwoffset, vheight, 720 * sizeof(RETRO_PITCH));	
    }
    else
    {
-        video_cb(NULL, vwidth - vwoffset, vheight, 720 * 2);
+        video_cb(NULL, vwidth - vwoffset, vheight, 720 * sizeof(RETRO_PITCH));
    }
 
    audio_cb(soundbuffer, audio_update(soundbuffer));
