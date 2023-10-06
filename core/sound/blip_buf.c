@@ -486,6 +486,9 @@ simply ignoring the low half. */
 
 void blip_add_delta( blip_t* m, unsigned time, int delta_l, int delta_r )
 {
+  blip_add_delta_fast(m, time, delta_l, delta_r);
+  return;
+
   if (delta_l | delta_r)
   {
     unsigned fixed = (unsigned) ((time * m->factor + m->offset) >> pre_shift);
@@ -623,6 +626,12 @@ void blip_add_delta_fast( blip_t* m, unsigned time, int delta_l, int delta_r )
     buf_t* out_r = m->buffer[1] + pos;
 #endif
 
+	out_l[7] += delta_l * delta_unit;
+	out_l[8] = 0;
+	out_r[7] += delta_r * delta_unit;
+	out_r[8] = 0;
+	return;
+
     int delta = delta_l * interp;
 
 #ifdef BLIP_ASSERT
@@ -653,6 +662,10 @@ void blip_add_delta_fast( blip_t* m, unsigned time, int delta_l, int delta_r )
 
 void blip_add_delta( blip_t* m, unsigned time, int delta )
 {
+	blip_add_delta_fast(m, time, delta);
+	return;
+
+
 	unsigned fixed = (unsigned) ((time * m->factor + m->offset) >> pre_shift);
 	buf_t* out = SAMPLES( m ) + (fixed >> frac_bits);
 	
@@ -696,6 +709,10 @@ void blip_add_delta_fast( blip_t* m, unsigned time, int delta )
 	
 	int interp = fixed >> (frac_bits - delta_bits) & (delta_unit - 1);
 	int delta2 = delta * interp;
+
+	out [7] += delta * delta_unit;
+	out [8] = 0;
+	return;
 	
 #ifdef BLIP_ASSERT
   /* Fails if buffer size was exceeded */
