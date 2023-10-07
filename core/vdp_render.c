@@ -997,9 +997,21 @@ static void palette_init(void)
     b = (i >> 6) & 7;
 
     /* Convert to output pixel format */
+#if 1
+	/* Shadow - Normal - Highlight = full range */
+	{
+		static int linear_lut[15] = { 0, 18, 36, 55, 73, 91, 109, 128, 146, 164, 182, 200, 219, 237, 255 };
+		static int hardware_lut[15] = { 0, 27, 49, 71, 87, 103, 119, 130, 146, 157, 174, 190, 206, 228, 255 };
+
+		pixel_lut[0][i] = (0xff << 24) | (linear_lut[r+0] << 16) | (linear_lut[g+0] << 8) | (linear_lut[b+0] << 0);
+		pixel_lut[1][i] = (0xff << 24) | (linear_lut[r*2] << 16) | (linear_lut[g*2] << 8) | (linear_lut[b*2] << 0);
+		pixel_lut[2][i] = (0xff << 24) | (linear_lut[r+7] << 16) | (linear_lut[g+7] << 8) | (linear_lut[b+7] << 0);
+	}
+#else
     pixel_lut[0][i] = MAKE_PIXEL(r,g,b);
     pixel_lut[1][i] = MAKE_PIXEL(r<<1,g<<1,b<<1);
     pixel_lut[2][i] = MAKE_PIXEL(r+7,g+7,b+7);
+#endif
   }
 
   /* Initialize Mode 4 pixel color look-up table */
