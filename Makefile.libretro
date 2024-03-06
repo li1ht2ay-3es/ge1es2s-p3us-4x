@@ -780,7 +780,7 @@ ifeq ($(platform), emscripten)
 else
    CFLAGS   += -O3 -DNDEBUG $(LTO)
    CXXFLAGS += -O3 -DNDEBUG $(LTO)
-   LDFLAGS += $(LTO)
+   LDFLAGS  += $(LTO)
 endif
 endif
 
