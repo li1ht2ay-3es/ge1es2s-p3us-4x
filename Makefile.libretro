@@ -9,6 +9,7 @@ HAVE_CDROM = 0
 USE_PER_SOUND_CHANNELS_CONFIG = 1
 LOW_MEMORY = 0
 MAX_ROM_SIZE = 10485760
+LTO ?= -flto
 
 CORE_DIR := .
 
@@ -777,8 +778,9 @@ ifeq ($(platform), emscripten)
    CFLAGS   += -O3 -DNDEBUG
    CXXFLAGS += -O3 -DNDEBUG
 else
-   CFLAGS   += -O3 -DNDEBUG -flto
-   CXXFLAGS += -O3 -DNDEBUG -flto
+   CFLAGS   += -O3 -DNDEBUG $(LTO)
+   CXXFLAGS += -O3 -DNDEBUG $(LTO)
+   LDFLAGS += $(LTO)
 endif
 endif
 
